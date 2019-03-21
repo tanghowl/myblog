@@ -15,30 +15,30 @@ import markdown
 def article_list(request):
     search = request.GET.get('search')
     order = request.GET.get('order')
+    column = request.GET.get('column')
+    tag = request.GET.get('tag')
+    article_lst = ArticlePost.objects.all()
     if search:
         if order == 'total_views':
-            article_lst = ArticlePost.objects.filter(
+            article_lst = article_lst.filter(
                 Q(title__icontains=search) |
                 Q(body__icontains=search)
             ).order_by('-total_views')
-        else:
-            article_lst = ArticlePost.objects.filter(
-                Q(title__icontains=search) |
-                Q(body__icontains=search)
-            )
     else:
         search = ''
-        if order == 'total_views':
-            article_lst = ArticlePost.objects.all().order_by('-total_views')
-        else:
-            article_lst = ArticlePost.objects.all()
 
-    paginator = Paginator(article_lst, 3)
+    if column is not None and column.isdigit():
+        article_lst = article_lst.filter(column=column)
+    if tag and tag != 'None':
+        article_lst = article_lst.filter(tags__name__in=[tag])
+    if order == 'total_views':
+        article_lst = article_lst.order_by('-total_views')
+
+    paginator = Paginator(article_lst, 5)
     page = request.GET.get('page')
     articles = paginator.get_page(page)
 
-    context = {'articles': articles, 'order': order}
-
+    context = {'articles': articles, 'search': search, 'column': column, 'tag': tag, 'order': order}
     return render(request, 'article/list.html', context)
 
 
@@ -84,6 +84,7 @@ def article_create(request):
             if request.POST['column'] != 'none':
                 new_article.column = ArticleColumn.objects.get(id=request.POST['column'])
             new_article.save()
+            article_post_form.save_m2m()
             return redirect('article:article_list')
         else:
             return HttpResponse('There is something wrong with the form. Please fill it again')
